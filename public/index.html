@@ -286,7 +286,7 @@ async function doLoadInventory() {
   allItems = [];
   try {
     let page=1, total=null;
-    const pageSize=100;
+    const pageSize=5000;
     setLoad('Fetching inventory...', 10);
     while (true) {
       const params = new URLSearchParams({ pageNumber:page, pageSize, companyId:selectedCompany.id });
