@@ -40,6 +40,30 @@ app.get('/proxy/inventory', async (req, res) => {
   }
 });
 
+app.get('/proxy/companies', async (req, res) => {
+  try {
+    const token = req.headers['authorization'];
+    const r = await fetch(`${SC_BASE}/inventory?pageNumber=1&pageSize=200`, {
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await r.json();
+    const items = data.Items || data.items || [];
+    const seen = new Map();
+    items.forEach(i => {
+      if (i.CompanyID && i.CompanyName && !seen.has(i.CompanyID)) {
+        seen.set(i.CompanyID, i.CompanyName);
+      }
+    });
+    const companies = Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+    res.json({ companies, total: data.TotalResults || 0 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
