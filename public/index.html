@@ -7,368 +7,97 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg: #0f0f0f;
-    --surface: #181818;
-    --surface2: #222222;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.14);
-    --text: #f0f0f0;
-    --muted: #888;
-    --accent: #c8f060;
+    --bg: #0f0f0f; --surface: #181818; --surface2: #222222;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0; --muted: #888; --accent: #c8f060;
     --accent-dim: rgba(200,240,96,0.12);
-    --red: #ff5a5a;
-    --red-dim: rgba(255,90,90,0.12);
-    --amber: #ffb347;
-    --amber-dim: rgba(255,179,71,0.12);
-    --green: #5affa0;
-    --green-dim: rgba(90,255,160,0.12);
-    --blue: #5ab4ff;
-    --blue-dim: rgba(90,180,255,0.12);
-    --font: 'DM Sans', sans-serif;
-    --mono: 'DM Mono', monospace;
+    --red: #ff5a5a; --red-dim: rgba(255,90,90,0.12);
+    --amber: #ffb347; --amber-dim: rgba(255,179,71,0.12);
+    --green: #5affa0; --green-dim: rgba(90,255,160,0.12);
+    --blue: #5ab4ff; --blue-dim: rgba(90,180,255,0.12);
+    --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
   }
-
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; }
-
-  /* LOGIN */
-  #login-screen {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-  }
-
-  .login-box {
-    width: 380px;
-    border: 1px solid var(--border2);
-    border-radius: 16px;
-    padding: 2.5rem;
-    background: var(--surface);
-  }
-
-  .login-logo {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    color: var(--accent);
-    text-transform: uppercase;
-    margin-bottom: 2rem;
-  }
-
-  .login-title {
-    font-size: 22px;
-    font-weight: 500;
-    margin-bottom: 0.4rem;
-  }
-
-  .login-sub {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 2rem;
-  }
-
+  .center-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { width: 420px; border: 1px solid var(--border2); border-radius: 16px; padding: 2.5rem; background: var(--surface); }
+  .card-logo { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; margin-bottom: 2rem; }
+  .card-title { font-size: 22px; font-weight: 500; margin-bottom: 0.4rem; }
+  .card-sub { font-size: 13px; color: var(--muted); margin-bottom: 2rem; }
   .field { margin-bottom: 1rem; }
   .field label { display: block; font-size: 11px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; font-family: var(--mono); }
-  .field input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    padding: 10px 14px;
-    outline: none;
-    transition: border-color 0.2s;
+  .field input, .field select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 14px; outline: none; transition: border-color 0.2s; appearance: none;
   }
-  .field input:focus { border-color: var(--accent); }
-
-  .btn-connect {
-    width: 100%;
-    margin-top: 1.5rem;
-    padding: 12px;
-    background: var(--accent);
-    color: #0f0f0f;
-    border: none;
-    border-radius: 8px;
-    font-family: var(--font);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: opacity 0.2s;
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; background-color: var(--surface2);
   }
-  .btn-connect:hover { opacity: 0.88; }
-  .btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .login-error {
-    background: var(--red-dim);
-    border: 1px solid rgba(255,90,90,0.3);
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: var(--red);
-    font-size: 13px;
-    margin-top: 1rem;
-    display: none;
-  }
-
-  /* LOADING */
-  #loading-screen {
-    display: none;
-    min-height: 100vh;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .loading-label {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-  }
-
-  .progress-bar-wrap {
-    width: 280px;
-    height: 2px;
-    background: var(--border2);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 2px;
-    transition: width 0.4s ease;
-    width: 0%;
-  }
-
-  .loading-count {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
-
-  /* REPORT */
+  .field select option { background: var(--surface2); color: var(--text); }
+  .btn-primary { width: 100%; margin-top: 1.5rem; padding: 12px; background: var(--accent); color: #0f0f0f; border: none; border-radius: 8px; font-family: var(--font); font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .error-box { background: var(--red-dim); border: 1px solid rgba(255,90,90,0.3); border-radius: 8px; padding: 10px 14px; color: var(--red); font-size: 13px; margin-top: 1rem; display: none; }
+  .info-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 1rem; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .loading-label { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.08em; }
+  .progress-wrap { width: 280px; height: 2px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+  .loading-count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   #report-screen { display: none; min-height: 100vh; flex-direction: column; }
-
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 2rem;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: rgba(15,15,15,0.95);
-    backdrop-filter: blur(8px);
-    z-index: 10;
-  }
-
-  .topbar-left { display: flex; align-items: center; gap: 1rem; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(15,15,15,0.96); backdrop-filter: blur(8px); z-index: 10; }
+  .topbar-left { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
   .topbar-logo { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; }
   .topbar-title { font-size: 15px; font-weight: 500; }
+  .topbar-company { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 3px 10px; }
+  .token-indicator { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .token-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
   .topbar-ts { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-
-  .topbar-actions { display: flex; gap: 8px; }
-
-  .btn-sm {
-    padding: 6px 14px;
-    background: transparent;
-    border: 1px solid var(--border2);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--font);
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .btn-sm:hover { background: var(--surface2); border-color: var(--border2); }
+  .btn-sm { padding: 6px 14px; background: transparent; border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-size: 12px; cursor: pointer; transition: background 0.15s; }
+  .btn-sm:hover { background: var(--surface2); }
   .btn-sm.accent { background: var(--accent-dim); border-color: rgba(200,240,96,0.3); color: var(--accent); }
   .btn-sm.accent:hover { background: rgba(200,240,96,0.2); }
-
   .content { padding: 2rem; flex: 1; }
-
-  /* METRICS */
-  .metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 12px;
-    margin-bottom: 2rem;
-  }
-
-  .metric {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem 1rem;
-  }
-
-  .metric-label {
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    text-transform: uppercase;
-    font-family: var(--mono);
-    margin-bottom: 8px;
-  }
-
-  .metric-value {
-    font-size: 26px;
-    font-weight: 300;
-    font-family: var(--mono);
-    color: var(--text);
-  }
-
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 2rem; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1rem; }
+  .metric-label { font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; font-family: var(--mono); margin-bottom: 8px; }
+  .metric-value { font-size: 26px; font-weight: 300; font-family: var(--mono); }
   .metric-value.red { color: var(--red); }
   .metric-value.amber { color: var(--amber); }
-  .metric-value.green { color: var(--green); }
-
-  /* FILTERS */
-  .filters {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .filters select {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 7px 12px;
-    outline: none;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    padding-right: 28px;
-    transition: border-color 0.15s;
-  }
-  .filters select:focus, .filters select:hover { border-color: rgba(200,240,96,0.4); }
-
-  .filter-count {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    margin-left: auto;
-  }
-
-  /* TABLE */
-  .table-wrap {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    overflow-x: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    min-width: 780px;
-  }
-
-  thead tr {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border2);
-  }
-
-  th {
-    text-align: left;
-    padding: 12px 16px;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    text-transform: uppercase;
-    font-family: var(--mono);
-    white-space: nowrap;
-    cursor: pointer;
-    user-select: none;
-    transition: color 0.15s;
-  }
+  .filters { display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+  .filters select { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 28px 7px 12px; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; transition: border-color 0.15s; }
+  .filters select:hover, .filters select:focus { border-color: rgba(200,240,96,0.4); }
+  .filters select option { background: var(--surface2); }
+  .filter-count { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+  .table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 780px; }
+  thead tr { background: var(--surface); border-bottom: 1px solid var(--border2); }
+  th { text-align: left; padding: 12px 16px; font-size: 10px; font-weight: 500; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; font-family: var(--mono); white-space: nowrap; cursor: pointer; user-select: none; transition: color 0.15s; }
   th:hover { color: var(--text); }
   th.sort-asc::after { content: ' ↑'; color: var(--accent); }
   th.sort-desc::after { content: ' ↓'; color: var(--accent); }
-
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.1s;
-  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--surface); }
-
-  td {
-    padding: 11px 16px;
-    color: var(--text);
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
+  td { padding: 11px 16px; color: var(--text); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   td.mono { font-family: var(--mono); font-size: 12px; }
   td.muted { color: var(--muted); }
-
-  /* BADGES */
-  .badge {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-family: var(--mono);
-    font-weight: 500;
-    letter-spacing: 0.03em;
-  }
-
+  td.right { text-align: right; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-family: var(--mono); font-weight: 500; }
   .badge-fresh  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(90,255,160,0.2); }
   .badge-aging  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(90,180,255,0.2); }
   .badge-old    { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(255,179,71,0.2); }
   .badge-dead   { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,90,90,0.2); }
   .badge-vold   { background: rgba(255,90,90,0.2); color: #ff3333;     border: 1px solid rgba(255,50,50,0.4); }
-
   .badge-active { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(90,255,160,0.2); }
   .badge-slow   { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(255,179,71,0.2); }
   .badge-ds     { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,90,90,0.2); }
-
-  .empty-state {
-    text-align: center;
-    padding: 4rem;
-    color: var(--muted);
-    font-size: 13px;
-    font-family: var(--mono);
-  }
-
-  /* TOKEN BADGE */
-  .token-indicator {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .token-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-  /* SCROLLBAR */
+  .empty-state  { text-align: center; padding: 4rem; color: var(--muted); font-size: 13px; font-family: var(--mono); }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -376,57 +105,61 @@
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">Flipty Flip LLC</div>
-    <div class="login-title">Aging inventory</div>
-    <div class="login-sub">Connect to SellerCloud to load your report</div>
+<!-- STEP 1: LOGIN -->
+<div id="login-screen" class="center-screen">
+  <div class="card">
+    <div class="card-logo">Flipty Flip LLC</div>
+    <div class="card-title">Aging inventory</div>
+    <div class="card-sub">Sign in to SellerCloud to continue</div>
+    <div class="field"><label>Email</label><input type="email" id="sc-email" value="henry@goldlabelny.com" /></div>
+    <div class="field"><label>Password</label><input type="password" id="sc-pass" value="Corishabt1987!!" /></div>
+    <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign in</button>
+    <div class="error-box" id="login-error"></div>
+  </div>
+</div>
+
+<!-- STEP 2: COMPANY PICKER -->
+<div id="company-screen" class="center-screen" style="display:none;">
+  <div class="card">
+    <div class="card-logo">Flipty Flip LLC</div>
+    <div class="card-title">Select company</div>
+    <div class="card-sub">Choose which company's inventory to load</div>
     <div class="field">
-      <label>Email</label>
-      <input type="email" id="sc-email" value="henry@goldlabelny.com" autocomplete="username" />
+      <label>Company</label>
+      <select id="company-select"><option value="">Loading companies...</option></select>
     </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="sc-pass" value="Corishabt1987!!" autocomplete="current-password" />
-    </div>
-    <button class="btn-connect" onclick="doLogin()">Connect &amp; load inventory</button>
-    <div class="login-error" id="login-error"></div>
+    <div class="info-row"><div class="dot"></div><span id="company-total-label"></span></div>
+    <button class="btn-primary" id="btn-load" onclick="doLoadInventory()" disabled>Load inventory</button>
+    <div class="error-box" id="company-error"></div>
   </div>
 </div>
 
 <!-- LOADING -->
-<div id="loading-screen" style="display:none; min-height:100vh; align-items:center; justify-content:center; flex-direction:column; gap:1.5rem;">
-  <div class="loading-label" id="load-label">Authenticating...</div>
-  <div class="progress-bar-wrap">
-    <div class="progress-bar-fill" id="progress-fill"></div>
-  </div>
+<div id="loading-screen" class="center-screen" style="display:none; flex-direction:column; gap:1.5rem;">
+  <div class="loading-label" id="load-label">Loading...</div>
+  <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
   <div class="loading-count" id="load-count">&nbsp;</div>
 </div>
 
 <!-- REPORT -->
-<div id="report-screen" style="display:none; flex-direction:column;">
+<div id="report-screen">
   <div class="topbar">
     <div class="topbar-left">
       <div>
         <div class="topbar-logo">Flipty Flip LLC</div>
         <div class="topbar-title">Aging inventory report</div>
       </div>
-      <div class="token-indicator">
-        <div class="token-dot"></div>
-        <span id="token-status">Token active</span>
-      </div>
+      <div class="topbar-company" id="topbar-company"></div>
+      <div class="token-indicator"><div class="token-dot"></div><span id="token-status">Token active</span></div>
     </div>
     <div class="topbar-actions">
       <span class="topbar-ts" id="report-ts"></span>
       <button class="btn-sm accent" onclick="exportCSV()">Export CSV</button>
-      <button class="btn-sm" onclick="location.reload()">Reconnect</button>
+      <button class="btn-sm" onclick="goBack()">Change company</button>
     </div>
   </div>
-
   <div class="content">
     <div class="metrics" id="metrics"></div>
-
     <div class="filters">
       <select id="f-brand" onchange="renderTable()"><option value="">All brands</option></select>
       <select id="f-bucket" onchange="renderTable()">
@@ -445,7 +178,6 @@
       </select>
       <div class="filter-count" id="filter-count"></div>
     </div>
-
     <div class="table-wrap">
       <table>
         <thead>
@@ -453,13 +185,13 @@
             <th onclick="sortBy('ID')">SKU</th>
             <th onclick="sortBy('ProductName')">Product name</th>
             <th onclick="sortBy('BrandName')">Brand</th>
-            <th onclick="sortBy('PhysicalQty')" style="text-align:right;">Qty</th>
+            <th onclick="sortBy('PhysicalQty')">Qty</th>
             <th onclick="sortBy('_ageDays')">Age</th>
             <th onclick="sortBy('_bucket')">Bucket</th>
             <th onclick="sortBy('_velocity')">Velocity</th>
-            <th onclick="sortBy('QtySold30')" style="text-align:right;">Sold 30d</th>
-            <th onclick="sortBy('QtySold60')" style="text-align:right;">Sold 60d</th>
-            <th onclick="sortBy('QtySold90')" style="text-align:right;">Sold 90d</th>
+            <th onclick="sortBy('QtySold30')">Sold 30d</th>
+            <th onclick="sortBy('QtySold60')">Sold 60d</th>
+            <th onclick="sortBy('QtySold90')">Sold 90d</th>
           </tr>
         </thead>
         <tbody id="table-body"></tbody>
@@ -469,251 +201,195 @@
 </div>
 
 <script>
-let token = null;
-let tokenTime = null;
-let refreshTimer = null;
-let allItems = [];
-let sortKey = '_ageDays';
-let sortDir = 'desc';
+let token = null, tokenTime = null, refreshTimer = null;
+let allItems = [], sortKey = '_ageDays', sortDir = 'desc';
+let selectedCompany = null;
 
-function ageBucket(days) {
-  if (days <= 30) return '0-30';
-  if (days <= 60) return '31-60';
-  if (days <= 90) return '61-90';
-  if (days <= 180) return '91-180';
-  return '180+';
+function ageBucket(d) {
+  if (d<=30) return '0-30'; if (d<=60) return '31-60';
+  if (d<=90) return '61-90'; if (d<=180) return '91-180'; return '180+';
 }
-
-function bucketLabel(b) {
-  return { '0-30':'0–30 days','31-60':'31–60 days','61-90':'61–90 days','91-180':'91–180 days','180+':'180+ days' }[b] || b;
-}
-
-function bucketClass(b) {
-  return { '0-30':'badge-fresh','31-60':'badge-aging','61-90':'badge-old','91-180':'badge-dead','180+':'badge-vold' }[b] || 'badge-fresh';
-}
-
-function getVelocity(item) {
-  if ((item.QtySold30 || 0) === 0) return 'Dead stock';
-  if ((item.QtySold30 || 0) < (item.PhysicalQty || 0) * 0.1) return 'Slow moving';
+function bucketLabel(b) { return {'0-30':'0–30 days','31-60':'31–60 days','61-90':'61–90 days','91-180':'91–180 days','180+':'180+ days'}[b]||b; }
+function bucketClass(b) { return {'0-30':'badge-fresh','31-60':'badge-aging','61-90':'badge-old','91-180':'badge-dead','180+':'badge-vold'}[b]||'badge-fresh'; }
+function getVelocity(i) {
+  if ((i.QtySold30||0)===0) return 'Dead stock';
+  if ((i.QtySold30||0)<(i.PhysicalQty||0)*0.1) return 'Slow moving';
   return 'Active';
 }
-
-function velClass(v) {
-  return { 'Active':'badge-active','Slow moving':'badge-slow','Dead stock':'badge-ds' }[v] || 'badge-ds';
+function velClass(v) { return {'Active':'badge-active','Slow moving':'badge-slow','Dead stock':'badge-ds'}[v]||'badge-ds'; }
+function showError(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+function setLoad(label, pct, count) {
+  document.getElementById('load-label').textContent = label;
+  document.getElementById('progress-fill').style.width = pct+'%';
+  if (count!==undefined) document.getElementById('load-count').textContent = count;
 }
 
 async function doLogin() {
   const email = document.getElementById('sc-email').value;
   const pass  = document.getElementById('sc-pass').value;
-  const errEl = document.getElementById('login-error');
-  errEl.style.display = 'none';
-  document.querySelector('.btn-connect').disabled = true;
-
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
-
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('btn-login').disabled = true;
   try {
-    setLoad('Authenticating...', 5);
-    const r = await fetch('/proxy/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Username: email, Password: pass })
-    });
+    const r = await fetch('/proxy/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Username:email,Password:pass}) });
     const d = await r.json();
     token = d.access_token || d.token || d.Token;
     if (!token) throw new Error('No token returned — check credentials');
     tokenTime = Date.now();
-
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(async () => {
       try {
-        const rr = await fetch('/proxy/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ Username: email, Password: pass })
-        });
+        const rr = await fetch('/proxy/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Username:email,Password:pass}) });
         const dd = await rr.json();
         token = dd.access_token || dd.token || dd.Token;
         tokenTime = Date.now();
-        document.getElementById('token-status').textContent = 'Token refreshed ' + new Date().toLocaleTimeString();
+        document.getElementById('token-status').textContent = 'Refreshed ' + new Date().toLocaleTimeString();
       } catch(e) { console.warn('Token refresh failed', e); }
-    }, 55 * 60 * 1000);
+    }, 55*60*1000);
+    await loadCompanies();
+  } catch(e) {
+    document.getElementById('btn-login').disabled = false;
+    showError('login-error', e.message);
+  }
+}
 
-    await loadInventory();
+async function loadCompanies() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
+  setLoad('Discovering companies...', 30);
+  try {
+    const r = await fetch('/proxy/companies', { headers:{'Authorization':`Bearer ${token}`} });
+    const d = await r.json();
+    const companies = d.companies || [];
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('company-screen').style.display = 'flex';
+    const sel = document.getElementById('company-select');
+    sel.innerHTML = companies.length===0 ? '<option value="">No companies found</option>' : '<option value="">Select a company...</option>';
+    companies.forEach(c => { const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
+    if (companies.length===1) { sel.value=companies[0].id; selectedCompany=companies[0]; document.getElementById('btn-load').disabled=false; }
+    document.getElementById('company-total-label').textContent = `${(d.total||0).toLocaleString()} total items in catalog`;
+    sel.onchange = () => {
+      const chosen = companies.find(c => String(c.id)===sel.value);
+      selectedCompany = chosen||null;
+      document.getElementById('btn-load').disabled = !selectedCompany;
+    };
   } catch(e) {
     document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
-    document.querySelector('.btn-connect').disabled = false;
+    document.getElementById('company-screen').style.display = 'flex';
+    showError('company-error', e.message);
   }
 }
 
-function setLoad(label, pct, count) {
-  document.getElementById('load-label').textContent = label;
-  document.getElementById('progress-fill').style.width = pct + '%';
-  if (count !== undefined) document.getElementById('load-count').textContent = count;
-}
-
-async function loadInventory() {
+async function doLoadInventory() {
+  if (!selectedCompany) return;
+  document.getElementById('company-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'flex';
   allItems = [];
-  let page = 1;
-  const pageSize = 100;
-  let total = null;
-
-  setLoad('Fetching inventory...', 10);
-
-  while (true) {
-    const r = await fetch(`/proxy/inventory?pageNumber=${page}&pageSize=${pageSize}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!r.ok) throw new Error('Inventory fetch failed: ' + r.status);
-    const d = await r.json();
-    const items = (d.Items || d.items || []);
-    if (total === null) total = d.TotalResults || d.totalResults || items.length;
-
-    const active = items.filter(i => (i.PhysicalQty || 0) > 0);
-    allItems = allItems.concat(active);
-
-    const fetched = Math.min(page * pageSize, total);
-    const pct = Math.round(10 + (fetched / total) * 85);
-    setLoad(`Loading inventory...`, pct, `${fetched.toLocaleString()} of ${total.toLocaleString()} items — ${allItems.length.toLocaleString()} with stock`);
-
-    if (fetched >= total || items.length === 0) break;
-    page++;
+  try {
+    let page=1, total=null;
+    const pageSize=100;
+    setLoad('Fetching inventory...', 10);
+    while (true) {
+      const params = new URLSearchParams({ pageNumber:page, pageSize, companyId:selectedCompany.id });
+      const r = await fetch(`/proxy/inventory?${params}`, { headers:{'Authorization':`Bearer ${token}`} });
+      if (!r.ok) throw new Error('Inventory fetch failed: '+r.status);
+      const d = await r.json();
+      const items = d.Items||d.items||[];
+      if (total===null) total = d.TotalResults||d.totalResults||items.length;
+      // Child items only: exclude kits (parents), require PhysicalQty > 0
+      const active = items.filter(i => (i.PhysicalQty||0)>0 && i.ID && i.ID.toLowerCase().startsWith('i'));
+      allItems = allItems.concat(active);
+      const fetched = Math.min(page*pageSize, total);
+      setLoad('Loading inventory...', Math.round(10+(fetched/total)*85), `${fetched.toLocaleString()} of ${total.toLocaleString()} items — ${allItems.length.toLocaleString()} child SKUs with stock`);
+      if (fetched>=total || items.length===0) break;
+      page++;
+    }
+    buildReport();
+  } catch(e) {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('company-screen').style.display = 'flex';
+    showError('company-error', e.message);
   }
-
-  setLoad('Building report...', 98);
-  buildReport();
 }
 
 function buildReport() {
   const now = new Date();
   allItems = allItems.map(i => {
     const created = i.CreationDate ? new Date(i.CreationDate) : null;
-    const ageDays = created ? Math.floor((now - created) / 86400000) : null;
-    return {
-      ...i,
-      _ageDays: ageDays,
-      _bucket: ageDays !== null ? ageBucket(ageDays) : '?',
-      _velocity: getVelocity(i)
-    };
+    const ageDays = created ? Math.floor((now-created)/86400000) : null;
+    return {...i, _ageDays:ageDays, _bucket:ageDays!==null?ageBucket(ageDays):'?', _velocity:getVelocity(i)};
   });
-
-  const brands = [...new Set(allItems.map(i => i.BrandName).filter(Boolean))].sort();
+  const brands = [...new Set(allItems.map(i=>i.BrandName).filter(Boolean))].sort();
   const sel = document.getElementById('f-brand');
-  brands.forEach(b => {
-    const o = document.createElement('option');
-    o.value = b; o.textContent = b;
-    sel.appendChild(o);
-  });
-
-  document.getElementById('report-ts').textContent = 'Loaded ' + new Date().toLocaleTimeString();
+  sel.innerHTML = '<option value="">All brands</option>';
+  brands.forEach(b => { const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); });
+  document.getElementById('topbar-company').textContent = selectedCompany.name;
+  document.getElementById('report-ts').textContent = 'Loaded '+new Date().toLocaleTimeString();
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('report-screen').style.display = 'flex';
-
-  renderMetrics();
-  renderTable();
+  renderMetrics(); renderTable();
 }
 
 function renderMetrics() {
-  const total = allItems.length;
-  const buckets = [
-    { key:'0-30',   label:'0–30 days',  cls:'' },
-    { key:'31-60',  label:'31–60 days', cls:'' },
-    { key:'61-90',  label:'61–90 days', cls:'amber' },
-    { key:'91-180', label:'91–180 days',cls:'red' },
-    { key:'180+',   label:'180+ days',  cls:'red' }
-  ];
-  const dead = allItems.filter(i => i._velocity === 'Dead stock').length;
-
-  let html = `<div class="metric"><div class="metric-label">Total SKUs</div><div class="metric-value">${total.toLocaleString()}</div></div>`;
-  buckets.forEach(b => {
-    const cnt = allItems.filter(i => i._bucket === b.key).length;
-    html += `<div class="metric"><div class="metric-label">${b.label}</div><div class="metric-value ${b.cls}">${cnt.toLocaleString()}</div></div>`;
-  });
+  const buckets = [{key:'0-30',label:'0–30 days',cls:''},{key:'31-60',label:'31–60 days',cls:''},{key:'61-90',label:'61–90 days',cls:'amber'},{key:'91-180',label:'91–180 days',cls:'red'},{key:'180+',label:'180+ days',cls:'red'}];
+  const dead = allItems.filter(i=>i._velocity==='Dead stock').length;
+  let html = `<div class="metric"><div class="metric-label">Total SKUs</div><div class="metric-value">${allItems.length.toLocaleString()}</div></div>`;
+  buckets.forEach(b => { const cnt=allItems.filter(i=>i._bucket===b.key).length; html+=`<div class="metric"><div class="metric-label">${b.label}</div><div class="metric-value ${b.cls}">${cnt.toLocaleString()}</div></div>`; });
   html += `<div class="metric"><div class="metric-label">Dead stock</div><div class="metric-value red">${dead.toLocaleString()}</div></div>`;
   document.getElementById('metrics').innerHTML = html;
 }
 
 function getFiltered() {
-  const brand  = document.getElementById('f-brand').value;
-  const bucket = document.getElementById('f-bucket').value;
-  const vel    = document.getElementById('f-velocity').value;
-  return allItems.filter(i =>
-    (!brand  || i.BrandName  === brand)  &&
-    (!bucket || i._bucket    === bucket) &&
-    (!vel    || i._velocity  === vel)
-  );
+  const brand=document.getElementById('f-brand').value, bucket=document.getElementById('f-bucket').value, vel=document.getElementById('f-velocity').value;
+  return allItems.filter(i=>(!brand||i.BrandName===brand)&&(!bucket||i._bucket===bucket)&&(!vel||i._velocity===vel));
 }
 
 function sortBy(key) {
-  if (sortKey === key) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
-  else { sortKey = key; sortDir = 'asc'; }
-  document.querySelectorAll('th').forEach(th => th.className = '');
-  const ths = document.querySelectorAll('th');
-  const keys = ['ID','ProductName','BrandName','PhysicalQty','_ageDays','_bucket','_velocity','QtySold30','QtySold60','QtySold90'];
-  const idx = keys.indexOf(key);
-  if (idx >= 0) ths[idx].className = sortDir === 'asc' ? 'sort-asc' : 'sort-desc';
+  sortDir = sortKey===key?(sortDir==='asc'?'desc':'asc'):'asc'; sortKey=key;
+  document.querySelectorAll('th').forEach(th=>th.className='');
+  const keys=['ID','ProductName','BrandName','PhysicalQty','_ageDays','_bucket','_velocity','QtySold30','QtySold60','QtySold90'];
+  const idx=keys.indexOf(key);
+  if (idx>=0) document.querySelectorAll('th')[idx].className=sortDir==='asc'?'sort-asc':'sort-desc';
   renderTable();
 }
 
 function renderTable() {
   let rows = getFiltered();
-  rows.sort((a, b) => {
-    let av = a[sortKey], bv = b[sortKey];
-    if (av === null || av === undefined) av = sortDir === 'asc' ? Infinity : -Infinity;
-    if (bv === null || bv === undefined) bv = sortDir === 'asc' ? Infinity : -Infinity;
-    if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    return sortDir === 'asc' ? av - bv : bv - av;
+  rows.sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if (av==null) av=sortDir==='asc'?Infinity:-Infinity;
+    if (bv==null) bv=sortDir==='asc'?Infinity:-Infinity;
+    if (typeof av==='string') return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    return sortDir==='asc'?av-bv:bv-av;
   });
-
   document.getElementById('filter-count').textContent = `${rows.length.toLocaleString()} items`;
-
-  if (rows.length === 0) {
-    document.getElementById('table-body').innerHTML = `<tr><td colspan="10" class="empty-state">No items match the selected filters.</td></tr>`;
-    return;
-  }
-
-  document.getElementById('table-body').innerHTML = rows.map(i => `
+  if (!rows.length) { document.getElementById('table-body').innerHTML=`<tr><td colspan="10" class="empty-state">No items match the selected filters.</td></tr>`; return; }
+  document.getElementById('table-body').innerHTML = rows.map(i=>`
     <tr>
       <td class="mono" title="${i.ID||''}">${i.ID||'—'}</td>
       <td title="${i.ProductName||''}">${i.ProductName||'—'}</td>
       <td class="muted">${i.BrandName||'—'}</td>
-      <td class="mono" style="text-align:right;">${(i.PhysicalQty||0).toLocaleString()}</td>
-      <td class="mono muted">${i._ageDays !== null ? i._ageDays + 'd' : '—'}</td>
+      <td class="mono right">${(i.PhysicalQty||0).toLocaleString()}</td>
+      <td class="mono muted">${i._ageDays!=null?i._ageDays+'d':'—'}</td>
       <td><span class="badge ${bucketClass(i._bucket)}">${bucketLabel(i._bucket)}</span></td>
       <td><span class="badge ${velClass(i._velocity)}">${i._velocity}</span></td>
-      <td class="mono" style="text-align:right;">${(i.QtySold30||0).toLocaleString()}</td>
-      <td class="mono" style="text-align:right;">${(i.QtySold60||0).toLocaleString()}</td>
-      <td class="mono" style="text-align:right;">${(i.QtySold90||0).toLocaleString()}</td>
-    </tr>
-  `).join('');
+      <td class="mono right">${(i.QtySold30||0).toLocaleString()}</td>
+      <td class="mono right">${(i.QtySold60||0).toLocaleString()}</td>
+      <td class="mono right">${(i.QtySold90||0).toLocaleString()}</td>
+    </tr>`).join('');
 }
 
 function exportCSV() {
-  const rows = getFiltered();
-  const headers = ['SKU','Product Name','Brand','Physical Qty','Age Days','Age Bucket','Velocity','Sold 30d','Sold 60d','Sold 90d'];
-  const lines = [
-    headers.join(','),
-    ...rows.map(i => [
-      `"${i.ID||''}"`,
-      `"${(i.ProductName||'').replace(/"/g,'""')}"`,
-      `"${i.BrandName||''}"`,
-      i.PhysicalQty||0,
-      i._ageDays !== null ? i._ageDays : '',
-      i._bucket,
-      `"${i._velocity}"`,
-      i.QtySold30||0,
-      i.QtySold60||0,
-      i.QtySold90||0
-    ].join(','))
-  ];
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `aging_inventory_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
+  const rows=getFiltered();
+  const headers=['SKU','Product Name','Brand','Physical Qty','Age Days','Age Bucket','Velocity','Sold 30d','Sold 60d','Sold 90d'];
+  const lines=[headers.join(','),...rows.map(i=>[`"${i.ID||''}"`,`"${(i.ProductName||'').replace(/"/g,'""')}"`,`"${i.BrandName||''}"`,i.PhysicalQty||0,i._ageDays!=null?i._ageDays:'',i._bucket,`"${i._velocity}"`,i.QtySold30||0,i.QtySold60||0,i.QtySold90||0].join(','))];
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`aging_${selectedCompany?.name||'inventory'}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+function goBack() {
+  document.getElementById('report-screen').style.display='none';
+  document.getElementById('company-screen').style.display='flex';
 }
 </script>
 </body>
