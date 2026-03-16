@@ -27,13 +27,12 @@ app.get('/proxy/inventory', async (req, res) => {
   try {
     const token = req.headers['authorization'];
     const qs = new URLSearchParams(req.query).toString();
+    console.log('Inventory request:', qs);
     const r = await fetch(`${SC_BASE}/inventory?${qs}`, {
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': token, 'Content-Type': 'application/json' }
     });
     const data = await r.json();
+    console.log('Inventory response TotalResults:', data.TotalResults, 'Items:', data.Items?.length);
     res.status(r.status).json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -43,11 +42,8 @@ app.get('/proxy/inventory', async (req, res) => {
 app.get('/proxy/companies', async (req, res) => {
   try {
     const token = req.headers['authorization'];
-    const r = await fetch(`${SC_BASE}/inventory?pageNumber=1&pageSize=200`, {
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json'
-      }
+    const r = await fetch(`${SC_BASE}/inventory?model.pageNumber=1&model.pageSize=500`, {
+      headers: { 'Authorization': token, 'Content-Type': 'application/json' }
     });
     const data = await r.json();
     const items = data.Items || data.items || [];
