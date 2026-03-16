@@ -74,7 +74,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 /* ── METRICS ── */
 .metrics-bar { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
-.metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; min-width: 110px; flex: 1; }
+.metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; min-width: 110px; flex: 1; transition: border-color 0.15s, background 0.15s; }
+.metric.clickable { cursor: pointer; }
+.metric.clickable:hover { background: var(--surface2); border-color: var(--border2); }
+.metric.active-filter { border-color: var(--accent) !important; background: var(--accent-dim) !important; }
 .metric-label { font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; font-family: var(--mono); margin-bottom: 6px; }
 .metric-value { font-size: 24px; font-weight: 300; font-family: var(--mono); }
 .metric-value.red { color: var(--red); }
@@ -117,7 +120,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* ── TABLE ── */
 .table-container { flex: 1; overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-thead { position: sticky; top: 0; z-index: 50; }
+thead tr th { position: sticky; top: 0; z-index: 50; }
 th {
   background: var(--surface); border-bottom: 1px solid var(--border2);
   padding: 10px 14px; font-size: 10px; font-weight: 500; letter-spacing: 0.09em;
@@ -270,7 +273,7 @@ const ALL_COLS = [
   { key: 'age',          label: 'Age',           visible: true,  render: i => `<td class="mono muted">${i._ageDays!=null?i._ageDays+'d':'—'}</td>` },
   { key: 'bucket',       label: 'Bucket',        visible: true,  render: i => `<td><span class="badge ${bucketClass(i._bucket)}">${bucketLabel(i._bucket)}</span></td>` },
   { key: 'velocity',     label: 'Velocity',      visible: true,  render: i => `<td><span class="badge ${velClass(i._velocity)}">${i._velocity}</span></td>` },
-  { key: 'lastUpdated',  label: 'Last updated',  visible: true,  render: i => `<td class="mono muted">${i._lastUpdated}</td>` },
+  { key: 'lastUpdated',  label: 'Last qty update', visible: true,  render: i => `<td class="mono muted">${i._lastUpdated}</td>` },
   { key: 'sold30',       label: 'Sold 30d',      visible: true,  render: i => `<td class="mono">${(i.QtySold30||0).toLocaleString()}</td>` },
   { key: 'sold60',       label: 'Sold 60d',      visible: true,  render: i => `<td class="mono">${(i.QtySold60||0).toLocaleString()}</td>` },
   { key: 'sold90',       label: 'Sold 90d',      visible: true,  render: i => `<td class="mono">${(i.QtySold90||0).toLocaleString()}</td>` },
@@ -361,12 +364,21 @@ function setInlineProgress(pct, text, done=false) {
   const wrap = document.getElementById('inline-progress-wrap');
   const fill = document.getElementById('inline-progress-fill');
   const txt  = document.getElementById('inline-load-text');
+  const spinner = document.getElementById('load-spinner');
   wrap.style.display = 'block';
   fill.style.width = pct + '%';
-  txt.textContent = text;
   if (done) {
+    spinner.style.display = 'none';
+    txt.innerHTML = `<span class="done-badge">✓ Done —</span> ${text}`;
     wrap.querySelector('.inline-progress').classList.add('done');
-    setTimeout(() => { wrap.style.display = 'none'; wrap.querySelector('.inline-progress').classList.remove('done'); }, 1400);
+    setTimeout(() => {
+      wrap.style.display = 'none';
+      wrap.querySelector('.inline-progress').classList.remove('done');
+      spinner.style.display = '';
+    }, 3000);
+  } else {
+    // Highlight SKU count in accent color
+    txt.innerHTML = text.replace(/(\d[\d,]+ SKUs?|\d[\d,]+ child SKUs?|\d[\d,]+ of ~?\d[\d,]+)/g, '<span class="sku-count">$1</span>');
   }
 }
 
@@ -504,7 +516,7 @@ function processItems(items) {
     if (i._processed) return i; // already processed
     const created = i.CreationDate ? new Date(i.CreationDate) : null;
     const ageDays = created ? Math.floor((now-created)/86400000) : null;
-    const lastMod = i.LastModifiedDate || i.LastAggregateDate || null;
+    const lastMod = i.LastAggregateDate || i.LastModifiedDate || null;
     return {
       ...i,
       _processed: true,
@@ -539,12 +551,45 @@ function buildReport() {
 
 // ── METRICS ──
 function renderMetrics() {
-  const buckets = [{key:'0-30',label:'0–30d',cls:''},{key:'31-60',label:'31–60d',cls:''},{key:'61-90',label:'61–90d',cls:'amber'},{key:'91-180',label:'91–180d',cls:'red'},{key:'180+',label:'180+d',cls:'red'}];
+  const buckets = [
+    {key:'0-30',  label:'0–30d',   cls:'',      clickable: false},
+    {key:'31-60', label:'31–60d',  cls:'',      clickable: false},
+    {key:'61-90', label:'61–90d',  cls:'amber', clickable: true},
+    {key:'91-180',label:'91–180d', cls:'red',   clickable: true},
+    {key:'180+',  label:'180+ days',cls:'red',  clickable: true}
+  ];
   const dead = allItems.filter(i=>i._velocity==='Dead stock').length;
+  const curBucket = document.getElementById('f-bucket').value;
+  const curVel    = document.getElementById('f-velocity').value;
+
   let html = `<div class="metric"><div class="metric-label">Total SKUs</div><div class="metric-value">${allItems.length.toLocaleString()}</div></div>`;
-  buckets.forEach(b => { const cnt=allItems.filter(i=>i._bucket===b.key).length; html+=`<div class="metric"><div class="metric-label">${b.label}</div><div class="metric-value ${b.cls}">${cnt.toLocaleString()}</div></div>`; });
-  html+=`<div class="metric"><div class="metric-label">Dead stock</div><div class="metric-value red">${dead.toLocaleString()}</div></div>`;
+
+  buckets.forEach(b => {
+    const cnt = allItems.filter(i=>i._bucket===b.key).length;
+    const isActive = curBucket === b.key;
+    const clickAttr = b.clickable ? `onclick="toggleMetricFilter('bucket','${b.key}')" ` : '';
+    const classes = `metric${b.clickable?' clickable':''}${isActive?' active-filter':''}`;
+    html += `<div class="${classes}" ${clickAttr}><div class="metric-label">${b.label}</div><div class="metric-value ${b.cls}">${cnt.toLocaleString()}</div></div>`;
+  });
+
+  const isDeadActive = curVel === 'Dead stock';
+  html += `<div class="metric clickable${isDeadActive?' active-filter':''}" onclick="toggleMetricFilter('velocity','Dead stock')"><div class="metric-label">Dead stock</div><div class="metric-value red">${dead.toLocaleString()}</div></div>`;
   document.getElementById('metrics').innerHTML = html;
+}
+
+function toggleMetricFilter(type, value) {
+  if (type === 'bucket') {
+    const sel = document.getElementById('f-bucket');
+    sel.value = sel.value === value ? '' : value;
+    // Clear velocity filter when switching to bucket filter
+    if (sel.value) document.getElementById('f-velocity').value = '';
+  } else if (type === 'velocity') {
+    const sel = document.getElementById('f-velocity');
+    sel.value = sel.value === value ? '' : value;
+    if (sel.value) document.getElementById('f-bucket').value = '';
+  }
+  renderMetrics();
+  renderTable();
 }
 
 // ── COLUMN PICKER ──
