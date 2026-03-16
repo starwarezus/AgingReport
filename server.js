@@ -1,538 +1,107 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Aging Inventory Report</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg: #0f0f0f; --surface: #181818; --surface2: #222222; --surface3: #2a2a2a;
-  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
-  --text: #f0f0f0; --muted: #777; --muted2: #555;
-  --accent: #c8f060; --accent-dim: rgba(200,240,96,0.1);
-  --red: #ff5a5a; --red-dim: rgba(255,90,90,0.1);
-  --amber: #ffb347; --amber-dim: rgba(255,179,71,0.1);
-  --green: #5affa0; --green-dim: rgba(90,255,160,0.1);
-  --blue: #5ab4ff; --blue-dim: rgba(90,180,255,0.1);
-  --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
-}
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; }
+const express = require('express');
+const fetch = require('node-fetch');
+const path = require('path');
 
-/* ── SHARED ── */
-.center-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-.card { width: 420px; border: 1px solid var(--border2); border-radius: 16px; padding: 2.5rem; background: var(--surface); }
-.card-title { font-size: 22px; font-weight: 500; margin-bottom: 0.35rem; }
-.card-sub { font-size: 13px; color: var(--muted); margin-bottom: 2rem; }
-.field { margin-bottom: 1rem; }
-.field label { display: block; font-size: 11px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; font-family: var(--mono); }
-.field input, .field select {
-  width: 100%; background: var(--surface2); border: 1px solid var(--border2);
-  border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 13px;
-  padding: 10px 14px; outline: none; transition: border-color 0.2s; appearance: none;
-}
-.field input:focus, .field select:focus { border-color: var(--accent); }
-.field select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 12px center;
-  padding-right: 32px; background-color: var(--surface2);
-}
-.field select option { background: var(--surface2); color: var(--text); }
-.btn-primary { width: 100%; margin-top: 1.5rem; padding: 12px; background: var(--accent); color: #0f0f0f; border: none; border-radius: 8px; font-family: var(--font); font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
-.btn-primary:hover { opacity: 0.85; }
-.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
-.error-box { background: var(--red-dim); border: 1px solid rgba(255,90,90,0.25); border-radius: 8px; padding: 10px 14px; color: var(--red); font-size: 13px; margin-top: 1rem; display: none; }
-.info-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 1rem; }
-.dot-accent { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+const app = express();
+const PORT = process.env.PORT || 3001;
+const SC_BASE = 'https://blny.api.sellercloud.com/rest/api';
+const PAGE_SIZE = 50;
+const BATCH = 30;
 
-/* ── LOADING ── */
-.loading-label { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.08em; }
-.progress-wrap { width: 300px; height: 2px; background: var(--border2); border-radius: 2px; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s ease; width: 0%; }
-.loading-count { font-family: var(--mono); font-size: 11px; color: var(--muted2); }
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-/* ── TOPBAR ── */
-#report-screen { display: none; flex-direction: column; min-height: 100vh; }
-.sticky-top { position: sticky; top: 0; z-index: 100; background: var(--bg); }
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
-}
-.topbar-left { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.topbar-title { font-size: 15px; font-weight: 500; }
-.topbar-company { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 3px 10px; }
-.token-indicator { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-.token-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); animation: pulse 2s infinite; }
-@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.35} }
-.topbar-right { display: flex; gap: 8px; align-items: center; }
-.topbar-ts { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-.btn-sm { padding: 6px 14px; background: transparent; border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-size: 12px; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-.btn-sm:hover { background: var(--surface2); }
-.btn-sm.accent { background: var(--accent-dim); border-color: rgba(200,240,96,0.3); color: var(--accent); }
-.btn-sm.accent:hover { background: rgba(200,240,96,0.18); }
-
-/* ── METRICS ── */
-.metrics-bar { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
-.metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; min-width: 110px; flex: 1; }
-.metric-label { font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; font-family: var(--mono); margin-bottom: 6px; }
-.metric-value { font-size: 24px; font-weight: 300; font-family: var(--mono); }
-.metric-value.red { color: var(--red); }
-.metric-value.amber { color: var(--amber); }
-
-/* ── FILTERS ── */
-.filters-bar { padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.filter-select {
-  background: var(--surface); border: 1px solid var(--border2); border-radius: 7px;
-  color: var(--text); font-family: var(--mono); font-size: 12px;
-  padding: 6px 28px 6px 10px; outline: none; cursor: pointer; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 9px center;
-  transition: border-color 0.15s;
-}
-.filter-select:hover, .filter-select:focus { border-color: rgba(200,240,96,0.35); }
-.filter-select option { background: var(--surface2); }
-.filter-count { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
-.col-toggle-btn { padding: 6px 12px; background: var(--surface); border: 1px solid var(--border2); border-radius: 7px; color: var(--muted); font-size: 12px; cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
-.col-toggle-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface2); }
-
-/* ── COLUMN PICKER DROPDOWN ── */
-.col-picker { position: relative; }
-.col-picker-menu {
-  display: none; position: absolute; top: calc(100% + 6px); right: 0;
-  background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
-  padding: 8px; z-index: 200; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-.col-picker-menu.open { display: block; }
-.col-picker-item {
-  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
-  border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--mono);
-  color: var(--muted); transition: background 0.1s, color 0.1s; user-select: none;
-}
-.col-picker-item:hover { background: var(--surface2); color: var(--text); }
-.col-picker-item.active { color: var(--accent); }
-.col-picker-item .check { width: 14px; height: 14px; border: 1px solid var(--border2); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
-.col-picker-item.active .check { background: var(--accent-dim); border-color: rgba(200,240,96,0.4); color: var(--accent); }
-
-/* ── TABLE ── */
-.table-container { flex: 1; overflow: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-thead { position: sticky; top: 0; z-index: 50; }
-th {
-  background: var(--surface); border-bottom: 1px solid var(--border2);
-  padding: 10px 14px; font-size: 10px; font-weight: 500; letter-spacing: 0.09em;
-  color: var(--muted); text-transform: uppercase; font-family: var(--mono);
-  white-space: nowrap; text-align: center; user-select: none;
-  cursor: grab; transition: color 0.15s, background 0.15s;
-}
-th:hover { color: var(--text); background: var(--surface2); }
-th.dragging { opacity: 0.4; cursor: grabbing; }
-th.drag-over { background: var(--accent-dim); border-left: 2px solid var(--accent); }
-th .sort-icon { display: inline-block; margin-left: 4px; opacity: 0.4; font-size: 9px; }
-th.sort-asc .sort-icon::after { content: '↑'; opacity: 1; color: var(--accent); }
-th.sort-desc .sort-icon::after { content: '↓'; opacity: 1; color: var(--accent); }
-th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: '↕'; }
-tbody tr { border-bottom: 1px solid var(--border); transition: background 0.08s; }
-tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: var(--surface); }
-td { padding: 10px 14px; text-align: center; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-td.left { text-align: left; }
-td.mono { font-family: var(--mono); font-size: 12px; }
-td.muted { color: var(--muted); }
-
-/* ── BADGES ── */
-.badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-family: var(--mono); font-weight: 500; }
-.badge-fresh  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(90,255,160,0.18); }
-.badge-aging  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(90,180,255,0.18); }
-.badge-old    { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(255,179,71,0.18); }
-.badge-dead   { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,90,90,0.18); }
-.badge-vold   { background: rgba(255,90,90,0.18); color: #ff3333;    border: 1px solid rgba(255,50,50,0.35); }
-.badge-active { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(90,255,160,0.18); }
-.badge-slow   { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(255,179,71,0.18); }
-.badge-ds     { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,90,90,0.18); }
-
-.empty-state { text-align: center; padding: 4rem; color: var(--muted); font-size: 13px; font-family: var(--mono); }
-
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-</style>
-</head>
-<body>
-
-<!-- LOGIN -->
-<div id="login-screen" class="center-screen">
-  <div class="card">
-    <div class="card-title">Aging inventory</div>
-    <div class="card-sub">Sign in to SellerCloud to continue</div>
-    <div class="field"><label>Email</label><input type="email" id="sc-email" value="henry@goldlabelny.com" /></div>
-    <div class="field"><label>Password</label><input type="password" id="sc-pass" value="Corishabt1987!!" /></div>
-    <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign in</button>
-    <div class="error-box" id="login-error"></div>
-  </div>
-</div>
-
-<!-- COMPANY PICKER -->
-<div id="company-screen" class="center-screen" style="display:none;">
-  <div class="card">
-    <div class="card-title">Select company</div>
-    <div class="card-sub">Choose which company's inventory to load</div>
-    <div class="field">
-      <label>Company</label>
-      <select id="company-select"><option value="">Loading...</option></select>
-    </div>
-    <div class="info-row"><div class="dot-accent"></div><span id="company-total-label"></span></div>
-    <button class="btn-primary" id="btn-load" onclick="doLoadInventory()" disabled>Load inventory</button>
-    <div class="error-box" id="company-error"></div>
-  </div>
-</div>
-
-<!-- LOADING -->
-<div id="loading-screen" class="center-screen" style="display:none; flex-direction:column; gap:1.5rem;">
-  <div class="loading-label" id="load-label">Loading...</div>
-  <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
-  <div class="loading-count" id="load-count">&nbsp;</div>
-</div>
-
-<!-- REPORT -->
-<div id="report-screen">
-  <div class="sticky-top">
-    <!-- topbar -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <div class="topbar-title">Aging inventory report</div>
-        <div class="topbar-company" id="topbar-company"></div>
-        <div class="token-indicator"><div class="token-dot"></div><span id="token-status">Token active</span></div>
-      </div>
-      <div class="topbar-right">
-        <span class="topbar-ts" id="report-ts"></span>
-        <button class="btn-sm accent" onclick="exportCSV()">Export CSV</button>
-        <button class="btn-sm" onclick="goBack()">Change company</button>
-      </div>
-    </div>
-    <!-- metrics -->
-    <div class="metrics-bar" id="metrics"></div>
-    <!-- filters -->
-    <div class="filters-bar">
-      <select class="filter-select" id="f-brand" onchange="renderTable()"><option value="">All brands</option></select>
-      <select class="filter-select" id="f-bucket" onchange="renderTable()">
-        <option value="">All age buckets</option>
-        <option value="0-30">0–30 days</option>
-        <option value="31-60">31–60 days</option>
-        <option value="61-90">61–90 days</option>
-        <option value="91-180">91–180 days</option>
-        <option value="180+">180+ days</option>
-      </select>
-      <select class="filter-select" id="f-velocity" onchange="renderTable()">
-        <option value="">All velocity</option>
-        <option value="Active">Active</option>
-        <option value="Slow moving">Slow moving</option>
-        <option value="Dead stock">Dead stock</option>
-      </select>
-      <div class="col-picker">
-        <button class="col-toggle-btn" onclick="toggleColPicker(event)">Columns</button>
-        <div class="col-picker-menu" id="col-picker-menu"></div>
-      </div>
-      <div class="filter-count" id="filter-count"></div>
-    </div>
-  </div>
-
-  <!-- table -->
-  <div class="table-container">
-    <table id="main-table">
-      <thead><tr id="thead-row"></tr></thead>
-      <tbody id="table-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<script>
-// ── STATE ──
-let token = null, tokenTime = null, refreshTimer = null;
-let allItems = [], sortKey = '_ageDays', sortDir = 'desc';
-let selectedCompany = null;
-let dragSrcIdx = null;
-
-// ── COLUMN DEFINITIONS ──
-const ALL_COLS = [
-  { key: 'sku',          label: 'SKU',           visible: true,  render: i => `<td class="mono left">${i._sku}</td>` },
-  { key: 'name',         label: 'Product name',  visible: true,  render: i => `<td class="left" title="${esc(i.ProductName||'')}">${esc(i.ProductName||'—')}</td>` },
-  { key: 'brand',        label: 'Brand',         visible: true,  render: i => `<td class="muted">${esc(i.BrandName||'—')}</td>` },
-  { key: 'qty',          label: 'Qty',           visible: true,  render: i => `<td class="mono">${(i.PhysicalQty||0).toLocaleString()}</td>` },
-  { key: 'age',          label: 'Age',           visible: true,  render: i => `<td class="mono muted">${i._ageDays!=null?i._ageDays+'d':'—'}</td>` },
-  { key: 'bucket',       label: 'Bucket',        visible: true,  render: i => `<td><span class="badge ${bucketClass(i._bucket)}">${bucketLabel(i._bucket)}</span></td>` },
-  { key: 'velocity',     label: 'Velocity',      visible: true,  render: i => `<td><span class="badge ${velClass(i._velocity)}">${i._velocity}</span></td>` },
-  { key: 'lastUpdated',  label: 'Last updated',  visible: true,  render: i => `<td class="mono muted">${i._lastUpdated}</td>` },
-  { key: 'sold30',       label: 'Sold 30d',      visible: true,  render: i => `<td class="mono">${(i.QtySold30||0).toLocaleString()}</td>` },
-  { key: 'sold60',       label: 'Sold 60d',      visible: true,  render: i => `<td class="mono">${(i.QtySold60||0).toLocaleString()}</td>` },
-  { key: 'sold90',       label: 'Sold 90d',      visible: true,  render: i => `<td class="mono">${(i.QtySold90||0).toLocaleString()}</td>` },
-];
-
-const SORT_KEYS = { sku:'_sku', name:'ProductName', brand:'BrandName', qty:'PhysicalQty', age:'_ageDays', bucket:'_bucket', velocity:'_velocity', lastUpdated:'_lastUpdatedRaw', sold30:'QtySold30', sold60:'QtySold60', sold90:'QtySold90' };
-
-// ── HELPERS ──
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function ageBucket(d) { if(d<=30)return'0-30'; if(d<=60)return'31-60'; if(d<=90)return'61-90'; if(d<=180)return'91-180'; return'180+'; }
-function bucketLabel(b) { return{'0-30':'0–30 days','31-60':'31–60 days','61-90':'61–90 days','91-180':'91–180 days','180+':'180+ days'}[b]||b; }
-function bucketClass(b) { return{'0-30':'badge-fresh','31-60':'badge-aging','61-90':'badge-old','91-180':'badge-dead','180+':'badge-vold'}[b]||'badge-fresh'; }
-function velClass(v) { return{'Active':'badge-active','Slow moving':'badge-slow','Dead stock':'badge-ds'}[v]||'badge-ds'; }
-function fmtDate(d) { if(!d)return'—'; const dt=new Date(d); return `${dt.getMonth()+1}.${dt.getDate()}.${String(dt.getFullYear()).slice(2)}`; }
-
-function getVelocity(i) {
-  const sold30 = i.QtySold30 || 0;
-  const qty = i.PhysicalQty || 1;
-  if (sold30 === 0) return 'Dead stock';
-  // months of supply = qty / sold30. If > 6 months = slow moving
-  const monthsOfSupply = qty / sold30;
-  if (monthsOfSupply > 6) return 'Slow moving';
-  return 'Active';
-}
-
-function showError(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
-function setLoad(label, pct, count) {
-  document.getElementById('load-label').textContent = label;
-  document.getElementById('progress-fill').style.width = pct+'%';
-  if(count!==undefined) document.getElementById('load-count').textContent = count;
-}
-
-// ── AUTH ──
-async function doLogin() {
-  const email = document.getElementById('sc-email').value;
-  const pass  = document.getElementById('sc-pass').value;
-  document.getElementById('login-error').style.display = 'none';
-  document.getElementById('btn-login').disabled = true;
+app.post('/proxy/token', async (req, res) => {
   try {
-    const r = await fetch('/proxy/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Username:email,Password:pass}) });
-    const d = await r.json();
-    token = d.access_token || d.token || d.Token;
-    if (!token) throw new Error('No token returned — check credentials');
-    tokenTime = Date.now();
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(async () => {
-      try {
-        const rr = await fetch('/proxy/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Username:email,Password:pass}) });
-        const dd = await rr.json();
-        token = dd.access_token || dd.token || dd.Token;
-        tokenTime = Date.now();
-        document.getElementById('token-status').textContent = 'Refreshed ' + new Date().toLocaleTimeString();
-      } catch(e) { console.warn('Token refresh failed', e); }
-    }, 55*60*1000);
-    await loadCompanies();
-  } catch(e) {
-    document.getElementById('btn-login').disabled = false;
-    showError('login-error', e.message);
-  }
-}
-
-// ── COMPANIES ──
-async function loadCompanies() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
-  setLoad('Discovering companies...', 30);
-  try {
-    const r = await fetch('/proxy/companies', { headers:{'Authorization':`Bearer ${token}`} });
-    const d = await r.json();
-    const companies = d.companies || [];
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('company-screen').style.display = 'flex';
-    const sel = document.getElementById('company-select');
-    sel.innerHTML = companies.length===0 ? '<option value="">No companies found</option>' : '<option value="">Select a company...</option>';
-    companies.forEach(c => { const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
-    if (companies.length===1) { sel.value=companies[0].id; selectedCompany=companies[0]; document.getElementById('btn-load').disabled=false; }
-    document.getElementById('company-total-label').textContent = `${(d.total||0).toLocaleString()} total items in catalog`;
-    sel.onchange = () => { const c=companies.find(c=>String(c.id)===sel.value); selectedCompany=c||null; document.getElementById('btn-load').disabled=!selectedCompany; };
-  } catch(e) {
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('company-screen').style.display = 'flex';
-    showError('company-error', e.message);
-  }
-}
-
-// ── LOAD INVENTORY ──
-async function doLoadInventory() {
-  if (!selectedCompany) return;
-  document.getElementById('company-screen').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
-  allItems = [];
-
-  try {
-    setLoad('Connecting to SellerCloud...', 5);
-    // Single request — server handles all pagination internally
-    const r = await fetch(`/proxy/inventory-all?companyId=${selectedCompany.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const r = await fetch(`${SC_BASE}/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
     });
-    if (!r.ok) throw new Error('Inventory fetch failed: ' + r.status);
-    setLoad('Processing inventory...', 90);
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    allItems = d.items || [];
-    setLoad('Building report...', 98);
-    buildReport();
-  } catch(e) {
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('company-screen').style.display = 'flex';
-    showError('company-error', e.message);
+    const data = await r.json();
+    res.status(r.status).json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
-}
-
-// ── BUILD REPORT ──
-function buildReport() {
-  const now = new Date();
-  allItems = allItems.map(i => {
-    const created = i.CreationDate ? new Date(i.CreationDate) : null;
-    const ageDays = created ? Math.floor((now-created)/86400000) : null;
-    const lastMod = i.LastModifiedDate || i.LastAggregateDate || null;
-    return {
-      ...i,
-      _sku: i.ID || '—',
-      _ageDays: ageDays,
-      _bucket: ageDays!==null ? ageBucket(ageDays) : '?',
-      _velocity: getVelocity(i),
-      _lastUpdatedRaw: lastMod ? new Date(lastMod).getTime() : 0,
-      _lastUpdated: fmtDate(lastMod)
-    };
-  });
-
-  const brands = [...new Set(allItems.map(i=>i.BrandName).filter(Boolean))].sort();
-  const sel = document.getElementById('f-brand');
-  sel.innerHTML = '<option value="">All brands</option>';
-  brands.forEach(b => { const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); });
-
-  document.getElementById('topbar-company').textContent = selectedCompany.name;
-  document.getElementById('report-ts').textContent = 'Loaded '+new Date().toLocaleTimeString();
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('report-screen').style.display = 'flex';
-
-  buildColPicker();
-  renderHeader();
-  renderMetrics();
-  renderTable();
-}
-
-// ── METRICS ──
-function renderMetrics() {
-  const buckets = [{key:'0-30',label:'0–30d',cls:''},{key:'31-60',label:'31–60d',cls:''},{key:'61-90',label:'61–90d',cls:'amber'},{key:'91-180',label:'91–180d',cls:'red'},{key:'180+',label:'180+d',cls:'red'}];
-  const dead = allItems.filter(i=>i._velocity==='Dead stock').length;
-  let html = `<div class="metric"><div class="metric-label">Total SKUs</div><div class="metric-value">${allItems.length.toLocaleString()}</div></div>`;
-  buckets.forEach(b => { const cnt=allItems.filter(i=>i._bucket===b.key).length; html+=`<div class="metric"><div class="metric-label">${b.label}</div><div class="metric-value ${b.cls}">${cnt.toLocaleString()}</div></div>`; });
-  html+=`<div class="metric"><div class="metric-label">Dead stock</div><div class="metric-value red">${dead.toLocaleString()}</div></div>`;
-  document.getElementById('metrics').innerHTML = html;
-}
-
-// ── COLUMN PICKER ──
-function buildColPicker() {
-  const menu = document.getElementById('col-picker-menu');
-  menu.innerHTML = ALL_COLS.map((c,idx) => `
-    <div class="col-picker-item ${c.visible?'active':''}" onclick="toggleCol(${idx})">
-      <div class="check">${c.visible?'✓':''}</div>
-      ${c.label}
-    </div>`).join('');
-}
-
-function toggleColPicker(e) {
-  e.stopPropagation();
-  document.getElementById('col-picker-menu').classList.toggle('open');
-}
-
-document.addEventListener('click', () => document.getElementById('col-picker-menu')?.classList.remove('open'));
-
-function toggleCol(idx) {
-  ALL_COLS[idx].visible = !ALL_COLS[idx].visible;
-  buildColPicker();
-  renderHeader();
-  renderTable();
-}
-
-// ── HEADER ──
-function renderHeader() {
-  const visible = ALL_COLS.filter(c=>c.visible);
-  document.getElementById('thead-row').innerHTML = visible.map((c,i) => {
-    const sk = SORT_KEYS[c.key];
-    const cls = sortKey===sk ? (sortDir==='asc'?'sort-asc':'sort-desc') : '';
-    return `<th class="${cls}" draggable="true" data-col="${c.key}" data-sk="${sk}" onclick="handleThClick(event,'${sk}')" ondragstart="onDragStart(event,${ALL_COLS.indexOf(c)})" ondragover="onDragOver(event)" ondrop="onDrop(event,${ALL_COLS.indexOf(c)})" ondragleave="onDragLeave(event)">${c.label}<span class="sort-icon"></span></th>`;
-  }).join('');
-}
-
-function handleThClick(e, sk) {
-  if (e.target.closest('th').classList.contains('dragging')) return;
-  sortDir = sortKey===sk ? (sortDir==='asc'?'desc':'asc') : 'desc';
-  sortKey = sk;
-  renderHeader();
-  renderTable();
-}
-
-// ── DRAG & DROP COLUMNS ──
-function onDragStart(e, idx) {
-  dragSrcIdx = idx;
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-function onDrop(e, targetIdx) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if (dragSrcIdx===null || dragSrcIdx===targetIdx) return;
-  const moved = ALL_COLS.splice(dragSrcIdx, 1)[0];
-  ALL_COLS.splice(targetIdx, 0, moved);
-  dragSrcIdx = null;
-  buildColPicker();
-  renderHeader();
-  renderTable();
-}
-document.addEventListener('dragend', () => {
-  document.querySelectorAll('th').forEach(th => th.classList.remove('dragging','drag-over'));
-  dragSrcIdx = null;
 });
 
-// ── FILTER & SORT ──
-function getFiltered() {
-  const brand=document.getElementById('f-brand').value;
-  const bucket=document.getElementById('f-bucket').value;
-  const vel=document.getElementById('f-velocity').value;
-  return allItems.filter(i=>(!brand||i.BrandName===brand)&&(!bucket||i._bucket===bucket)&&(!vel||i._velocity===vel));
-}
-
-// ── RENDER TABLE ──
-function renderTable() {
-  let rows = getFiltered();
-  rows.sort((a,b) => {
-    let av=a[sortKey], bv=b[sortKey];
-    if(av==null) av=sortDir==='asc'?Infinity:-Infinity;
-    if(bv==null) bv=sortDir==='asc'?Infinity:-Infinity;
-    if(typeof av==='string') return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
-    return sortDir==='asc'?av-bv:bv-av;
+async function fetchInventoryPage(token, companyId, page) {
+  const params = new URLSearchParams({
+    'model.pageNumber': page,
+    'model.pageSize': PAGE_SIZE,
+    'model.companyID': companyId,
+    'model.physicalQtyFrom': 1,
+    'model.kitType': 0
   });
-  document.getElementById('filter-count').textContent = `${rows.length.toLocaleString()} items`;
-  const visible = ALL_COLS.filter(c=>c.visible);
-  if (!rows.length) {
-    document.getElementById('table-body').innerHTML=`<tr><td colspan="${visible.length}" class="empty-state">No items match the selected filters.</td></tr>`;
-    return;
+  const r = await fetch(`${SC_BASE}/inventory?${params}`, {
+    headers: { 'Authorization': token, 'Content-Type': 'application/json' }
+  });
+  if (!r.ok) throw new Error(`SellerCloud returned ${r.status} on page ${page}`);
+  return r.json();
+}
+
+// Full inventory fetch — all pagination done server-side in parallel
+app.get('/proxy/inventory-all', async (req, res) => {
+  const token = req.headers['authorization'];
+  const companyId = req.query.companyId;
+  if (!companyId) return res.status(400).json({ error: 'companyId required' });
+
+  try {
+    // Page 1 to get total
+    console.log(`Fetching page 1 for company ${companyId}`);
+    const first = await fetchInventoryPage(token, companyId, 1);
+    const total = first.TotalResults || 0;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    console.log(`Total: ${total} items, ${totalPages} pages`);
+
+    let allItems = (first.Items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
+
+    // Fetch remaining pages in parallel batches
+    for (let batchStart = 2; batchStart <= totalPages; batchStart += BATCH) {
+      const batchEnd = Math.min(batchStart + BATCH - 1, totalPages);
+      const pages = [];
+      for (let p = batchStart; p <= batchEnd; p++) pages.push(p);
+      const results = await Promise.all(pages.map(p => fetchInventoryPage(token, companyId, p)));
+      results.forEach(d => {
+        const items = (d.Items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
+        allItems = allItems.concat(items);
+      });
+      console.log(`Batch ${batchStart}-${batchEnd} done — ${allItems.length} child SKUs so far`);
+    }
+
+    console.log(`Done. Returning ${allItems.length} child SKUs to client`);
+    res.json({ items: allItems, total, totalPages });
+  } catch (e) {
+    console.error('inventory-all error:', e.message);
+    res.status(500).json({ error: e.message });
   }
-  document.getElementById('table-body').innerHTML = rows.map(i => `<tr>${visible.map(c=>c.render(i)).join('')}</tr>`).join('');
-}
+});
 
-// ── EXPORT ──
-function exportCSV() {
-  const rows = getFiltered();
-  const visible = ALL_COLS.filter(c=>c.visible);
-  const csvKeys = { sku:'_sku', name:'ProductName', brand:'BrandName', qty:'PhysicalQty', age:'_ageDays', bucket:'_bucket', velocity:'_velocity', lastUpdated:'_lastUpdated', sold30:'QtySold30', sold60:'QtySold60', sold90:'QtySold90' };
-  const headers = visible.map(c=>c.label).join(',');
-  const lines = [headers, ...rows.map(i => visible.map(c => {
-    const v = i[csvKeys[c.key]]??'';
-    return typeof v==='string'&&v.includes(',') ? `"${v.replace(/"/g,'""')}"` : v;
-  }).join(','))];
-  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `aging_${selectedCompany?.name||'inventory'}_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-}
+app.get('/proxy/companies', async (req, res) => {
+  try {
+    const token = req.headers['authorization'];
+    const r = await fetch(`${SC_BASE}/inventory?model.pageNumber=1&model.pageSize=500`, {
+      headers: { 'Authorization': token, 'Content-Type': 'application/json' }
+    });
+    const data = await r.json();
+    const items = data.Items || [];
+    const seen = new Map();
+    items.forEach(i => {
+      if (i.CompanyID && i.CompanyName && !seen.has(i.CompanyID)) {
+        seen.set(i.CompanyID, i.CompanyName);
+      }
+    });
+    const companies = Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+    res.json({ companies, total: data.TotalResults || 0 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
-function goBack() {
-  document.getElementById('report-screen').style.display='none';
-  document.getElementById('company-screen').style.display='flex';
-}
-</script>
-</body>
-</html>
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
