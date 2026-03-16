@@ -289,21 +289,20 @@ async function doLoadInventory() {
     const pageSize=10000;
     setLoad('Fetching inventory...', 10);
     while (true) {
-      const params = new URLSearchParams({ pageNumber:page, pageSize, companyId:selectedCompany.id });
+      const params = new URLSearchParams({
+        'model.pageNumber': page,
+        'model.pageSize': pageSize,
+        'model.companyID': selectedCompany.id,
+        'model.physicalQtyFrom': 1,
+        'model.kitType': 0
+      });
       const r = await fetch(`/proxy/inventory?${params}`, { headers:{'Authorization':`Bearer ${token}`} });
       if (!r.ok) throw new Error('Inventory fetch failed: '+r.status);
       const d = await r.json();
       const items = d.Items||d.items||[];
       if (total===null) total = d.TotalResults||d.totalResults||items.length;
-      // Child items only: exclude kits (parents), require PhysicalQty > 0
-      // Debug: log first 5 items to console so we can see real field names
-      if (page === 1 && items.length > 0) {
-        console.log('Sample items from API:', items.slice(0,5).map(i => ({ ID: i.ID, ProductID: i.ProductID, SKU: i.SKU, Sku: i.Sku, PhysicalQty: i.PhysicalQty })));
-      }
-      // Try all likely SKU field names, filter to i-number child SKUs with stock
-      const getSku = i => i.ID || i.ProductID || i.SKU || i.Sku || '';
-      const active = items.filter(i => (i.PhysicalQty||0)>0 && getSku(i).toLowerCase().startsWith('i'));
-      allItems = allItems.concat(active);
+      if (page===1 && items.length>0) console.log('Sample items:', items.slice(0,3).map(i=>({ID:i.ID,PhysicalQty:i.PhysicalQty,IsKit:i.IsKit})));
+      allItems = allItems.concat(items);
       const fetched = Math.min(page*pageSize, total);
       setLoad('Loading inventory...', Math.round(10+(fetched/total)*85), `${fetched.toLocaleString()} of ${total.toLocaleString()} items — ${allItems.length.toLocaleString()} child SKUs with stock`);
       if (fetched>=total || items.length===0) break;
