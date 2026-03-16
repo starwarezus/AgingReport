@@ -235,6 +235,14 @@ td.muted { color: var(--muted); }
       </div>
       <div class="filter-count" id="filter-count"></div>
     </div>
+  <!-- inline loading progress -->
+  <div id="inline-progress-wrap" style="display:none;">
+    <div class="loading-badge">
+      <div class="spinner" id="load-spinner"></div>
+      <span id="inline-load-text">Loading...</span>
+    </div>
+    <div class="inline-progress"><div class="inline-progress-fill" id="inline-progress-fill"></div></div>
+  </div>
   </div>
 
   <!-- table -->
@@ -349,49 +357,125 @@ async function loadCompanies() {
 }
 
 // ── LOAD INVENTORY ──
+function setInlineProgress(pct, text, done=false) {
+  const wrap = document.getElementById('inline-progress-wrap');
+  const fill = document.getElementById('inline-progress-fill');
+  const txt  = document.getElementById('inline-load-text');
+  wrap.style.display = 'block';
+  fill.style.width = pct + '%';
+  txt.textContent = text;
+  if (done) {
+    wrap.querySelector('.inline-progress').classList.add('done');
+    setTimeout(() => { wrap.style.display = 'none'; wrap.querySelector('.inline-progress').classList.remove('done'); }, 1400);
+  }
+}
+
+function timeAgo(ts) {
+  const mins = Math.round((Date.now() - ts) / 60000);
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs/24)}d ago`;
+}
+
 async function doLoadInventory() {
   if (!selectedCompany) return;
   document.getElementById('company-screen').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
   allItems = [];
 
+  const email = document.getElementById('sc-email').value;
+  const pass  = document.getElementById('sc-pass').value;
+  const streamParams = new URLSearchParams({ companyId: selectedCompany.id, username: email, password: pass });
+
+  // Show loading screen initially
+  document.getElementById('loading-screen').style.display = 'flex';
+  setLoad('Connecting to SellerCloud...', 3);
+
   try {
-    setLoad('Connecting to SellerCloud...', 3);
-    const r = await fetch(`/proxy/inventory-stream?companyId=${selectedCompany.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
+    const r = await fetch(`/proxy/inventory-stream?${streamParams}`);
     if (!r.ok) throw new Error('Stream failed: ' + r.status);
 
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let total = 0, totalPages = 0;
+    let total = 0, totalPages = 0, reportShown = false;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep incomplete last line
+      buffer = lines.pop();
+
       for (const line of lines) {
         if (!line.trim()) continue;
         const msg = JSON.parse(line);
-        if (msg.type === 'meta') {
+
+        if (msg.type === 'cached') {
+          // Instant cache hit — show report immediately
+          allItems = msg.items;
+          document.getElementById('loading-screen').style.display = 'none';
+          buildReport();
+          reportShown = true;
+          const age = timeAgo(msg.savedAt);
+          setInlineProgress(100, `Cached ${age} — checking for updates...`);
+
+        } else if (msg.type === 'delta-start') {
+          setInlineProgress(10, 'Syncing changes since last load...');
+
+        } else if (msg.type === 'delta-progress') {
+          const pct = Math.round(10 + (msg.page / (msg.totalPages||1)) * 80);
+          setInlineProgress(pct, `Syncing… ${msg.count} changes found`);
+
+        } else if (msg.type === 'delta-done') {
+          if (msg.updatedCount > 0) {
+            // Merge updated items into allItems
+            const map = new Map(allItems.map(i => [i.ID, i]));
+            (msg.items || []).forEach(i => {
+              if ((i.PhysicalQty||0) > 0) map.set(i.ID, i);
+              else map.delete(i.ID);
+            });
+            allItems = Array.from(map.values());
+            refreshReport();
+            setInlineProgress(100, `Synced — ${msg.updatedCount} changes, ${msg.totalCount.toLocaleString()} total SKUs`, true);
+          } else {
+            setInlineProgress(100, `Up to date — ${msg.totalCount.toLocaleString()} SKUs`, true);
+          }
+
+        } else if (msg.type === 'meta') {
           total = msg.total; totalPages = msg.totalPages;
-          setLoad(`Loading ${total.toLocaleString()} items...`, 5, `0 of ${totalPages} pages`);
+          setLoad(`Loading ${total.toLocaleString()} SKUs...`, 5);
+
         } else if (msg.type === 'items') {
           allItems = allItems.concat(msg.items);
+          if (!reportShown && allItems.length > 0) {
+            reportShown = true;
+            document.getElementById('loading-screen').style.display = 'none';
+            buildReport();
+          } else if (reportShown) {
+            refreshReport();
+          }
+
         } else if (msg.type === 'progress') {
-          const pct = Math.round(5 + (msg.page / totalPages) * 90);
-          setLoad('Loading inventory...', pct, `Page ${msg.page} of ${totalPages} — ${allItems.length.toLocaleString()} child SKUs`);
+          const pct = Math.round((msg.page / (totalPages||1)) * 100);
+          if (reportShown) {
+            setInlineProgress(pct, `Loading… ${allItems.length.toLocaleString()} of ~${total.toLocaleString()} SKUs (page ${msg.page}/${totalPages})`);
+          } else {
+            setLoad('Loading inventory...', Math.round(5 + (msg.page/(totalPages||1))*90), `${allItems.length.toLocaleString()} SKUs so far`);
+          }
+
         } else if (msg.type === 'error') {
           throw new Error(msg.error);
+
         } else if (msg.type === 'done') {
-          setLoad('Building report...', 98, `${allItems.length.toLocaleString()} child SKUs loaded`);
+          if (!reportShown) {
+            document.getElementById('loading-screen').style.display = 'none';
+            buildReport();
+          }
         }
       }
     }
-    buildReport();
   } catch(e) {
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('company-screen').style.display = 'flex';
@@ -399,15 +483,31 @@ async function doLoadInventory() {
   }
 }
 
+function refreshReport() {
+  // Process any new unprocessed items
+  allItems = processItems(allItems);
+  // Rebuild brands dropdown additions only
+  const existing = new Set([...document.getElementById('f-brand').options].map(o => o.value).filter(Boolean));
+  const newBrands = [...new Set(allItems.map(i=>i.BrandName).filter(Boolean))].sort();
+  const sel = document.getElementById('f-brand');
+  newBrands.forEach(b => {
+    if (!existing.has(b)) { const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); }
+  });
+  renderMetrics();
+  renderTable();
+}
+
 // ── BUILD REPORT ──
-function buildReport() {
+function processItems(items) {
   const now = new Date();
-  allItems = allItems.map(i => {
+  return items.map(i => {
+    if (i._processed) return i; // already processed
     const created = i.CreationDate ? new Date(i.CreationDate) : null;
     const ageDays = created ? Math.floor((now-created)/86400000) : null;
     const lastMod = i.LastModifiedDate || i.LastAggregateDate || null;
     return {
       ...i,
+      _processed: true,
       _sku: i.ID || '—',
       _ageDays: ageDays,
       _bucket: ageDays!==null ? ageBucket(ageDays) : '?',
@@ -416,6 +516,10 @@ function buildReport() {
       _lastUpdated: fmtDate(lastMod)
     };
   });
+}
+
+function buildReport() {
+  allItems = processItems(allItems);
 
   const brands = [...new Set(allItems.map(i=>i.BrandName).filter(Boolean))].sort();
   const sel = document.getElementById('f-brand');
