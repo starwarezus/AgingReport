@@ -209,6 +209,7 @@ td.muted { color: var(--muted); }
       </div>
       <div class="topbar-right">
         <span class="topbar-ts" id="report-ts"></span>
+        <span id="cache-badge" style="font-family:var(--mono);font-size:11px;color:var(--muted);"></span>
         <button class="btn-sm accent" onclick="exportCSV()">Export CSV</button>
         <button class="btn-sm" onclick="goBack()">Change company</button>
       </div>
@@ -351,7 +352,25 @@ async function loadCompanies() {
     companies.forEach(c => { const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
     if (companies.length===1) { sel.value=companies[0].id; selectedCompany=companies[0]; document.getElementById('btn-load').disabled=false; }
     document.getElementById('company-total-label').textContent = `${(d.total||0).toLocaleString()} total items in catalog`;
-    sel.onchange = () => { const c=companies.find(c=>String(c.id)===sel.value); selectedCompany=c||null; document.getElementById('btn-load').disabled=!selectedCompany; };
+    sel.onchange = async () => {
+      const c=companies.find(c=>String(c.id)===sel.value);
+      selectedCompany=c||null;
+      document.getElementById('btn-load').disabled=!selectedCompany;
+      if (selectedCompany) {
+        try {
+          const cr = await fetch(`/proxy/cache-status?companyId=${selectedCompany.id}`);
+          const cs = await cr.json();
+          const info = document.getElementById('company-total-label');
+          if (cs.exists && cs.valid) {
+            info.innerHTML = `<span style="color:var(--accent)">✓ Cache available</span> — ${cs.items.toLocaleString()} SKUs saved ${cs.ageHrs}h ago. Will load instantly.`;
+          } else if (cs.exists) {
+            info.textContent = `Cache expired (${cs.ageHrs}h old) — full fetch required`;
+          } else {
+            info.textContent = `No cache — full fetch required (~2 min first time)`;
+          }
+        } catch(e) {}
+      }
+    };
   } catch(e) {
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('company-screen').style.display = 'flex';
@@ -530,7 +549,7 @@ function processItems(items) {
   });
 }
 
-function buildReport() {
+async function buildReport() {
   allItems = processItems(allItems);
 
   const brands = [...new Set(allItems.map(i=>i.BrandName).filter(Boolean))].sort();
@@ -540,6 +559,12 @@ function buildReport() {
 
   document.getElementById('topbar-company').textContent = selectedCompany.name;
   document.getElementById('report-ts').textContent = 'Loaded '+new Date().toLocaleTimeString();
+  // Check and show cache status
+  try {
+    const cr = await fetch(`/proxy/cache-status?companyId=${selectedCompany.id}`);
+    const cs = await cr.json();
+    if (cs.exists) document.getElementById('cache-badge').textContent = `cached ${cs.ageHrs}h ago`;
+  } catch(e) {}
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('report-screen').style.display = 'flex';
 
@@ -562,7 +587,8 @@ function renderMetrics() {
   const curBucket = document.getElementById('f-bucket').value;
   const curVel    = document.getElementById('f-velocity').value;
 
-  let html = `<div class="metric"><div class="metric-label">Total SKUs</div><div class="metric-value">${allItems.length.toLocaleString()}</div></div>`;
+  const anyFilter = curBucket || curVel;
+  let html = `<div class="metric${anyFilter?' clickable active-filter':''}" ${anyFilter?'onclick="clearAllFilters()"':''}><div class="metric-label">Total SKUs ${anyFilter?'<span style="font-size:9px;color:var(--accent);">✕ clear</span>':''}</div><div class="metric-value">${allItems.length.toLocaleString()}</div></div>`;
 
   buckets.forEach(b => {
     const cnt = allItems.filter(i=>i._bucket===b.key).length;
@@ -575,6 +601,14 @@ function renderMetrics() {
   const isDeadActive = curVel === 'Dead stock';
   html += `<div class="metric clickable${isDeadActive?' active-filter':''}" onclick="toggleMetricFilter('velocity','Dead stock')"><div class="metric-label">Dead stock</div><div class="metric-value red">${dead.toLocaleString()}</div></div>`;
   document.getElementById('metrics').innerHTML = html;
+}
+
+function clearAllFilters() {
+  document.getElementById('f-bucket').value = '';
+  document.getElementById('f-velocity').value = '';
+  document.getElementById('f-brand').value = '';
+  renderMetrics();
+  renderTable();
 }
 
 function toggleMetricFilter(type, value) {
