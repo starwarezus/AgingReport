@@ -276,7 +276,7 @@ function ageBucket(d) { if(d<=30)return'0-30'; if(d<=60)return'31-60'; if(d<=90)
 function bucketLabel(b) { return{'0-30':'0–30 days','31-60':'31–60 days','61-90':'61–90 days','91-180':'91–180 days','180+':'180+ days'}[b]||b; }
 function bucketClass(b) { return{'0-30':'badge-fresh','31-60':'badge-aging','61-90':'badge-old','91-180':'badge-dead','180+':'badge-vold'}[b]||'badge-fresh'; }
 function velClass(v) { return{'Active':'badge-active','Slow moving':'badge-slow','Dead stock':'badge-ds'}[v]||'badge-ds'; }
-function fmtDate(d) { if(!d)return'—'; const dt=new Date(d); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}); }
+function fmtDate(d) { if(!d)return'—'; const dt=new Date(d); return `${dt.getMonth()+1}.${dt.getDate()}.${String(dt.getFullYear()).slice(2)}`; }
 
 function getVelocity(i) {
   const sold30 = i.QtySold30 || 0;
@@ -349,36 +349,49 @@ async function loadCompanies() {
 }
 
 // ── LOAD INVENTORY ──
+async function fetchPage(page, pageSize) {
+  const params = new URLSearchParams({
+    'model.pageNumber': page,
+    'model.pageSize': pageSize,
+    'model.companyID': selectedCompany.id,
+    'model.physicalQtyFrom': 1,
+    'model.kitType': 0
+  });
+  const r = await fetch(`/proxy/inventory?${params}`, { headers:{'Authorization':`Bearer ${token}`} });
+  if (!r.ok) throw new Error('Inventory fetch failed: '+r.status);
+  return await r.json();
+}
+
 async function doLoadInventory() {
   if (!selectedCompany) return;
   document.getElementById('company-screen').style.display = 'none';
   document.getElementById('loading-screen').style.display = 'flex';
   allItems = [];
+  const BATCH = 20;
+  const PAGE_SIZE = 50;
+
   try {
-    let page=1, total=null;
-    const pageSize = 10000;
-    setLoad('Fetching inventory...', 5);
-    while (true) {
-      const params = new URLSearchParams({
-        'model.pageNumber': page,
-        'model.pageSize': pageSize,
-        'model.companyID': selectedCompany.id,
-        'model.physicalQtyFrom': 1,
-        'model.kitType': 0
+    setLoad('Fetching first page...', 3);
+    const first = await fetchPage(1, PAGE_SIZE);
+    const total = first.TotalResults || first.totalResults || 0;
+    const firstItems = first.Items || first.items || [];
+    allItems = firstItems.filter(i => i.ID && /^i\d+$/i.test(i.ID));
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    setLoad(`Loading ${total.toLocaleString()} items across ${totalPages} pages...`, 5, `Page 1 of ${totalPages} — ${allItems.length.toLocaleString()} child SKUs so far`);
+
+    let completed = 1;
+    for (let batchStart = 2; batchStart <= totalPages; batchStart += BATCH) {
+      const batchEnd = Math.min(batchStart + BATCH - 1, totalPages);
+      const pages = [];
+      for (let p = batchStart; p <= batchEnd; p++) pages.push(p);
+      const results = await Promise.all(pages.map(p => fetchPage(p, PAGE_SIZE)));
+      results.forEach(d => {
+        const items = (d.Items || d.items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
+        allItems = allItems.concat(items);
       });
-      const r = await fetch(`/proxy/inventory?${params}`, { headers:{'Authorization':`Bearer ${token}`} });
-      if (!r.ok) throw new Error('Inventory fetch failed: '+r.status);
-      const d = await r.json();
-      const items = d.Items||d.items||[];
-      if (total===null) total = d.TotalResults||d.totalResults||items.length;
-      // Safety net: also filter client-side to i-number SKUs
-      const active = items.filter(i => i.ID && /^i\d+$/i.test(i.ID));
-      allItems = allItems.concat(active);
-      const fetched = Math.min(page*pageSize, total);
-      const pct = Math.round(5 + (fetched/total)*90);
-      setLoad('Loading inventory...', pct, `${fetched.toLocaleString()} of ${total.toLocaleString()} fetched — ${allItems.length.toLocaleString()} child SKUs with stock`);
-      if (fetched>=total || items.length===0) break;
-      page++;
+      completed += pages.length;
+      const pct = Math.round(5 + (completed / totalPages) * 90);
+      setLoad('Loading inventory...', pct, `${Math.min(completed*PAGE_SIZE, total).toLocaleString()} of ${total.toLocaleString()} fetched — ${allItems.length.toLocaleString()} child SKUs`);
     }
     buildReport();
   } catch(e) {
