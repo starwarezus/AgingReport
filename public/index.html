@@ -349,49 +349,47 @@ async function loadCompanies() {
 }
 
 // ── LOAD INVENTORY ──
-async function fetchPage(page, pageSize) {
-  const params = new URLSearchParams({
-    'model.pageNumber': page,
-    'model.pageSize': pageSize,
-    'model.companyID': selectedCompany.id,
-    'model.physicalQtyFrom': 1,
-    'model.kitType': 0
-  });
-  const r = await fetch(`/proxy/inventory?${params}`, { headers:{'Authorization':`Bearer ${token}`} });
-  if (!r.ok) throw new Error('Inventory fetch failed: '+r.status);
-  return await r.json();
-}
-
 async function doLoadInventory() {
   if (!selectedCompany) return;
   document.getElementById('company-screen').style.display = 'none';
   document.getElementById('loading-screen').style.display = 'flex';
   allItems = [];
-  const BATCH = 20;
-  const PAGE_SIZE = 50;
 
   try {
-    setLoad('Fetching first page...', 3);
-    const first = await fetchPage(1, PAGE_SIZE);
-    const total = first.TotalResults || first.totalResults || 0;
-    const firstItems = first.Items || first.items || [];
-    allItems = firstItems.filter(i => i.ID && /^i\d+$/i.test(i.ID));
-    const totalPages = Math.ceil(total / PAGE_SIZE);
-    setLoad(`Loading ${total.toLocaleString()} items across ${totalPages} pages...`, 5, `Page 1 of ${totalPages} — ${allItems.length.toLocaleString()} child SKUs so far`);
+    setLoad('Connecting to SellerCloud...', 3);
+    const r = await fetch(`/proxy/inventory-stream?companyId=${selectedCompany.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!r.ok) throw new Error('Stream failed: ' + r.status);
 
-    let completed = 1;
-    for (let batchStart = 2; batchStart <= totalPages; batchStart += BATCH) {
-      const batchEnd = Math.min(batchStart + BATCH - 1, totalPages);
-      const pages = [];
-      for (let p = batchStart; p <= batchEnd; p++) pages.push(p);
-      const results = await Promise.all(pages.map(p => fetchPage(p, PAGE_SIZE)));
-      results.forEach(d => {
-        const items = (d.Items || d.items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
-        allItems = allItems.concat(items);
-      });
-      completed += pages.length;
-      const pct = Math.round(5 + (completed / totalPages) * 90);
-      setLoad('Loading inventory...', pct, `${Math.min(completed*PAGE_SIZE, total).toLocaleString()} of ${total.toLocaleString()} fetched — ${allItems.length.toLocaleString()} child SKUs`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let total = 0, totalPages = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete last line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const msg = JSON.parse(line);
+        if (msg.type === 'meta') {
+          total = msg.total; totalPages = msg.totalPages;
+          setLoad(`Loading ${total.toLocaleString()} items...`, 5, `0 of ${totalPages} pages`);
+        } else if (msg.type === 'items') {
+          allItems = allItems.concat(msg.items);
+        } else if (msg.type === 'progress') {
+          const pct = Math.round(5 + (msg.page / totalPages) * 90);
+          setLoad('Loading inventory...', pct, `Page ${msg.page} of ${totalPages} — ${allItems.length.toLocaleString()} child SKUs`);
+        } else if (msg.type === 'error') {
+          throw new Error(msg.error);
+        } else if (msg.type === 'done') {
+          setLoad('Building report...', 98, `${allItems.length.toLocaleString()} child SKUs loaded`);
+        }
+      }
     }
     buildReport();
   } catch(e) {
