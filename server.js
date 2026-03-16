@@ -8,10 +8,15 @@ const PORT = process.env.PORT || 3001;
 const SC_BASE = 'https://blny.api.sellercloud.com/rest/api';
 const PAGE_SIZE = 50;
 const BATCH = 20;
-const CACHE_DIR = path.join(__dirname, 'data');
+const CACHE_DIR = process.env.CACHE_DIR || path.join(__dirname, 'data');
 const CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
 
-if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+  console.log('Cache dir ready:', CACHE_DIR);
+} catch(e) {
+  console.error('Cache dir error:', e.message);
+}
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -30,9 +35,14 @@ function readCache(companyId) {
 
 function writeCache(companyId, items, lastSync) {
   try {
-    fs.writeFileSync(cachePath(companyId), JSON.stringify({ items, lastSync, savedAt: Date.now() }));
-    console.log(`Cache saved: ${items.length} items for company ${companyId}`);
-  } catch(e) { console.error('Cache write error:', e.message); }
+    const p = cachePath(companyId);
+    const data = JSON.stringify({ items, lastSync, savedAt: Date.now() });
+    fs.writeFileSync(p, data);
+    const kb = Math.round(data.length / 1024);
+    console.log(`Cache saved: ${items.length} items (${kb}KB) for company ${companyId} at ${p}`);
+  } catch(e) {
+    console.error('Cache write error:', e.message, 'path:', cachePath(companyId));
+  }
 }
 
 async function getToken(username, password) {
@@ -115,6 +125,19 @@ app.post('/proxy/token', async (req, res) => {
 });
 
 // ── COMPANIES ──
+app.get('/proxy/cache-status', (req, res) => {
+  const { companyId } = req.query;
+  const cached = readCache(companyId);
+  if (cached) {
+    const ageMs = Date.now() - cached.savedAt;
+    const ageHrs = (ageMs / 3600000).toFixed(1);
+    const valid = ageMs < CACHE_TTL;
+    res.json({ exists: true, valid, items: cached.items.length, savedAt: cached.savedAt, ageHrs });
+  } else {
+    res.json({ exists: false });
+  }
+});
+
 app.get('/proxy/companies', async (req, res) => {
   try {
     const token = req.headers['authorization'];
