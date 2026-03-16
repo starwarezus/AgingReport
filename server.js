@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const SC_BASE = 'https://blny.api.sellercloud.com/rest/api';
 const PAGE_SIZE = 50;
-const BATCH = 30;
+const BATCH = 20;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -40,40 +40,53 @@ async function fetchInventoryPage(token, companyId, page) {
   return r.json();
 }
 
-// Full inventory fetch — all pagination done server-side in parallel
-app.get('/proxy/inventory-all', async (req, res) => {
+// Streaming endpoint — sends newline-delimited JSON chunks so connection stays alive
+app.get('/proxy/inventory-stream', async (req, res) => {
   const token = req.headers['authorization'];
   const companyId = req.query.companyId;
   if (!companyId) return res.status(400).json({ error: 'companyId required' });
 
+  res.setHeader('Content-Type', 'application/x-ndjson');
+  res.setHeader('Transfer-Encoding', 'chunked');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.flushHeaders();
+
+  const send = (obj) => res.write(JSON.stringify(obj) + '\n');
+
   try {
-    // Page 1 to get total
     console.log(`Fetching page 1 for company ${companyId}`);
     const first = await fetchInventoryPage(token, companyId, 1);
     const total = first.TotalResults || 0;
     const totalPages = Math.ceil(total / PAGE_SIZE);
     console.log(`Total: ${total} items, ${totalPages} pages`);
 
-    let allItems = (first.Items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
+    send({ type: 'meta', total, totalPages });
 
-    // Fetch remaining pages in parallel batches
+    let firstItems = (first.Items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
+    if (firstItems.length) send({ type: 'items', items: firstItems });
+
     for (let batchStart = 2; batchStart <= totalPages; batchStart += BATCH) {
       const batchEnd = Math.min(batchStart + BATCH - 1, totalPages);
       const pages = [];
       for (let p = batchStart; p <= batchEnd; p++) pages.push(p);
+
       const results = await Promise.all(pages.map(p => fetchInventoryPage(token, companyId, p)));
+      const batchItems = [];
       results.forEach(d => {
-        const items = (d.Items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID));
-        allItems = allItems.concat(items);
+        (d.Items || []).filter(i => i.ID && /^i\d+$/i.test(i.ID)).forEach(i => batchItems.push(i));
       });
-      console.log(`Batch ${batchStart}-${batchEnd} done — ${allItems.length} child SKUs so far`);
+
+      if (batchItems.length) send({ type: 'items', items: batchItems });
+      send({ type: 'progress', page: batchEnd, totalPages });
+      console.log(`Batch ${batchStart}-${batchEnd} done`);
     }
 
-    console.log(`Done. Returning ${allItems.length} child SKUs to client`);
-    res.json({ items: allItems, total, totalPages });
+    send({ type: 'done' });
+    res.end();
   } catch (e) {
-    console.error('inventory-all error:', e.message);
-    res.status(500).json({ error: e.message });
+    console.error('Stream error:', e.message);
+    send({ type: 'error', error: e.message });
+    res.end();
   }
 });
 
