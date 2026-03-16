@@ -286,7 +286,7 @@ async function doLoadInventory() {
   allItems = [];
   try {
     let page=1, total=null;
-    const pageSize=5000;
+    const pageSize=10000;
     setLoad('Fetching inventory...', 10);
     while (true) {
       const params = new URLSearchParams({ pageNumber:page, pageSize, companyId:selectedCompany.id });
@@ -296,7 +296,13 @@ async function doLoadInventory() {
       const items = d.Items||d.items||[];
       if (total===null) total = d.TotalResults||d.totalResults||items.length;
       // Child items only: exclude kits (parents), require PhysicalQty > 0
-      const active = items.filter(i => (i.PhysicalQty||0)>0 && i.ID && i.ID.toLowerCase().startsWith('i'));
+      // Debug: log first 5 items to console so we can see real field names
+      if (page === 1 && items.length > 0) {
+        console.log('Sample items from API:', items.slice(0,5).map(i => ({ ID: i.ID, ProductID: i.ProductID, SKU: i.SKU, Sku: i.Sku, PhysicalQty: i.PhysicalQty })));
+      }
+      // Try all likely SKU field names, filter to i-number child SKUs with stock
+      const getSku = i => i.ID || i.ProductID || i.SKU || i.Sku || '';
+      const active = items.filter(i => (i.PhysicalQty||0)>0 && getSku(i).toLowerCase().startsWith('i'));
       allItems = allItems.concat(active);
       const fetched = Math.min(page*pageSize, total);
       setLoad('Loading inventory...', Math.round(10+(fetched/total)*85), `${fetched.toLocaleString()} of ${total.toLocaleString()} items — ${allItems.length.toLocaleString()} child SKUs with stock`);
@@ -316,7 +322,8 @@ function buildReport() {
   allItems = allItems.map(i => {
     const created = i.CreationDate ? new Date(i.CreationDate) : null;
     const ageDays = created ? Math.floor((now-created)/86400000) : null;
-    return {...i, _ageDays:ageDays, _bucket:ageDays!==null?ageBucket(ageDays):'?', _velocity:getVelocity(i)};
+    const sku = i.ID || i.ProductID || i.SKU || i.Sku || '—';
+    return {...i, _sku: sku, _ageDays:ageDays, _bucket:ageDays!==null?ageBucket(ageDays):'?', _velocity:getVelocity(i)};
   });
   const brands = [...new Set(allItems.map(i=>i.BrandName).filter(Boolean))].sort();
   const sel = document.getElementById('f-brand');
@@ -365,7 +372,7 @@ function renderTable() {
   if (!rows.length) { document.getElementById('table-body').innerHTML=`<tr><td colspan="10" class="empty-state">No items match the selected filters.</td></tr>`; return; }
   document.getElementById('table-body').innerHTML = rows.map(i=>`
     <tr>
-      <td class="mono" title="${i.ID||''}">${i.ID||'—'}</td>
+      <td class="mono" title="${i._sku}">${i._sku}</td>
       <td title="${i.ProductName||''}">${i.ProductName||'—'}</td>
       <td class="muted">${i.BrandName||'—'}</td>
       <td class="mono right">${(i.PhysicalQty||0).toLocaleString()}</td>
